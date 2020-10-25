@@ -20,7 +20,7 @@ def replace_brackets(tokens):
 
 def replace_unary_minus(tokens):
     for i, token in enumerate(tokens):
-        if token == '-' and (i == 0 or tokens[i - 1] in '^*/+-('):
+        if token == '-' and (i == 0 or tokens[i - 1] in '^*/+-(,'):
             tokens[i] = '#'
 
 
@@ -61,6 +61,11 @@ class Expression:
         rpn_obj = RPN()
         rpn_obj.convert(self.tokens)
         return rpn_obj.evaluate(x=arg)
+
+    def calculate(self):
+        rpn_obj = RPN()
+        rpn_obj.convert(self.tokens)
+        return rpn_obj.calculate(self.notation)
 
     def tabulate(self, start, stop, step):
         arg = Variable()
@@ -133,9 +138,8 @@ def case5():
 
 
 if __name__ == '__main__':
-    expr = Expression("exp(x)")
-    expr.tabulate(-2, 2, 0.01)
-    expr.draw()
+    expr = Expression("(pow(4,-1/2))")
+    print(expr.calculate())
     # case1()
     # case2()
     # case3()

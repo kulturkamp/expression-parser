@@ -105,13 +105,14 @@ class RPN:
                 while peek(stack) != '(':
                     self.notation.append(stack.pop())
                 stack.pop()
-                if peek(stack) in self.funcs:
+                if stack and peek(stack) in self.funcs:
                     self.notation.append(stack.pop())
                 continue
 
             if token == '(':
                 stack.append(token)
                 continue
+
             if is_number(token) or token in self.variables or token in self.const:
                 self.notation.append(token)
                 continue
@@ -158,6 +159,34 @@ class RPN:
             elif token in self.funcs:
                 a = stack.pop()
                 stack.append(self.funcs[token](a))
+        if not stack:
+            raise RuntimeError("empty input for evaluate")
+        return stack.pop()
+
+    def calculate(self, rpn):
+        stack = []
+        for token in rpn:
+            if is_number(token):
+                stack.append(float(token))
+                continue
+
+            if token in self.const:
+                stack.append(self.const[token])
+                continue
+
+            elif token in self.binary_ops:
+                if len(stack) < 2:
+                    break
+                b, a = stack.pop(), stack.pop()
+                stack.append(self.binary_ops[token][0](a, b))
+                continue
+
+            elif token in self.funcs:
+                a = stack.pop()
+                stack.append(self.funcs[token](a))
+                continue
+        if not stack:
+            raise RuntimeError("empty input for calculate")
         return stack.pop()
 
 
