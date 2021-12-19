@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import operator
+import re
 
 
 def is_number(n):
@@ -28,6 +29,34 @@ def check_parentheses(srt):
     return len(stack) == 0
 
 
+def replace_brackets(tokens):
+    for i, token in enumerate(tokens):
+        if token == '|':
+            tokens[i] = 'abs'
+            tokens.insert(i + 1, '(')
+            j = len(tokens) - 1
+            while True:
+                if tokens[j] == '|':
+                    tokens[j] = ')'
+                    break
+                j -= 1
+
+
+def replace_unary_minus(tokens):
+    for i, token in enumerate(tokens):
+        if token == '-' and (i == 0 or tokens[i - 1] in '^*/+-(,'):
+            tokens[i] = '#'
+
+
+def tokenize(expr):
+    if not (check_parentheses(expr)):
+        raise RuntimeError("parentheses do not match")
+    tokens = re.findall(r"(\b\w*[\.]?\w+\b|[\(\|\^\,\)\+\*\-\/])", expr)
+    replace_brackets(tokens)
+    replace_unary_minus(tokens)
+    return tokens
+
+
 class Variable:
     def __init__(self, val=None):
         self.value = val
@@ -38,8 +67,8 @@ class Variable:
 
 
 class RPN:
-    def __init__(self):
-        # operator, priority, associativity(left==0)
+    def __init__(self, expr=None):
+        # operator, priority, associativity(right==0)
         self.binary_ops = {
             '^': (operator.pow, 3, 0),
             'pow': (operator.pow, 3, 0),
@@ -67,11 +96,16 @@ class RPN:
             'y': None,
             'z': None
         }
-        self.notation = []
+        self.expression = expr
+        self.tokens = tokenize(expr) if expr else []
+        try:
+            self.notation = self.convert()
+        except RuntimeError:
+            self.notation = []
 
     def to_pop_operator(self, left_op, right_op):
         if not (left_op in self.binary_ops or left_op == '(' or left_op == '#'):
-            raise RuntimeError("excepted operstor on top of the stack, got {}".format(left_op))
+            raise RuntimeError("excepted operator on top of the stack, got {}".format(left_op))
 
         if left_op == '#':
             return True
@@ -85,14 +119,17 @@ class RPN:
         if self.binary_ops[left_op][1] < self.binary_ops[right_op][1]:
             return False
 
-        # left-associative
         if self.binary_ops[left_op][2] == 0:
             return True
         else:
             return False
 
-    def convert(self, tokens):
+    def convert(self, expr=None):
+        tokens = tokenize(expr) if expr else self.tokens
+        if not tokens:
+            return []
         stack = []
+        notat = []
         for token in tokens:
             if token == ',':
                 continue
@@ -103,10 +140,10 @@ class RPN:
 
             if token == ')':
                 while peek(stack) != '(':
-                    self.notation.append(stack.pop())
+                    notat.append(stack.pop())
                 stack.pop()
                 if stack and peek(stack) in self.funcs:
-                    self.notation.append(stack.pop())
+                    notat.append(stack.pop())
                 continue
 
             if token == '(':
@@ -114,7 +151,7 @@ class RPN:
                 continue
 
             if is_number(token) or token in self.variables or token in self.const:
-                self.notation.append(token)
+                notat.append(token)
                 continue
 
             if token in self.binary_ops:
@@ -123,7 +160,7 @@ class RPN:
                     continue
 
                 while stack and self.to_pop_operator(peek(stack), token):
-                    self.notation.append(stack.pop())
+                    notat.append(stack.pop())
                 stack.append(token)
                 continue
             else:
@@ -131,11 +168,13 @@ class RPN:
 
         while stack:
             tok = stack.pop()
-            self.notation.append(tok)
+            notat.append(tok)
+        return notat
 
-    def evaluate(self, **values):
+    def evaluate(self, expr=None, **values, ):
+        notation = self.convert(expr) if expr else self.notation
         stack = []
-        for token in self.notation:
+        for token in notation:
             if is_number(token):
                 stack.append(float(token))
 
@@ -163,7 +202,8 @@ class RPN:
             raise RuntimeError("empty input for evaluate")
         return stack.pop()
 
-    def calculate(self, rpn):
+    def calculate(self, expr):
+        rpn = self.convert(expr)
         stack = []
         for token in rpn:
             if is_number(token):
@@ -189,10 +229,19 @@ class RPN:
             raise RuntimeError("empty input for calculate")
         return stack.pop()
 
+    def print(self):
+        print("expression: {}\ntokens: {}\nreverse polish notation: {}"
+              .format(self.expression, self.tokens, self.notation))
+
 
 if __name__ == '__main__':
+    # rpn = RPN('sin(x+y)')
+    # rpn.print()
+    # print(rpn.evaluate(x=math.pi/2, y=math.pi/2))
+    # rpn = RPN('((2+3)*(4+5))^2')
+    # print(rpn.notation)
+    # print(rpn.evaluate(expr='sin(x)', x=math.pi))
     rpn = RPN()
-    tokens = ['sin', '(', 'x', ')']
-    rpn.convert(tokens)
-    print(rpn.notation)
-    print(rpn.evaluate(x=math.pi))
+    print(rpn.calculate('sin(PI/2+PI/2)'))
+
+
